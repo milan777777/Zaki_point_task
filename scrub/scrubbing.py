@@ -1,9 +1,10 @@
-from pyspark.sql import SparkSession 
 from pyspark.sql.functions import explode,col,expr,when 
 from pyspark.sql.types import ArrayType, IntegerType, ShortType 
+import yaml
 
-def scrub_import(in_path,prov_path):
-    spark = SparkSession.builder.appName('pythonfile').config("spark.driver.memory", "4g").getOrCreate()
+
+def scrub_import(in_path,prov_path,etl):
+    spark = etl.spark
 
     rate_file = spark.read.json(in_path) 
     provider_file = spark.read.json(prov_path)
