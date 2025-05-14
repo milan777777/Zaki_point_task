@@ -1,12 +1,14 @@
-from pyspark.sql import SparkSession
 import psycopg2
 
 
-def load_file(rate_path,provider_path):
+def load_file(rate_path,provider_path,etl):
+    spark =etl.spark
 
-    spark = SparkSession.builder.appName('task').getOrCreate()
-
-
+    port = etl.port
+    dbname = etl.dbname
+    user = etl.user
+    password = etl.password
+    host = etl.host
 
     spark
 
@@ -22,18 +24,18 @@ def load_file(rate_path,provider_path):
 
 
     conn = psycopg2.connect(
-        dbname="my_pgdb",
-        user="postgres",
-        password="admin",
-        host="localhost",
-        port=5432
+        dbname = dbname,
+        user = user,
+        password = password,
+        host = host,
+        port = port
     )
     # conn.autocommit = True
 
-    jdbc_url = "jdbc:postgresql://localhost:5432/my_pgdb"
+    jdbc_url = f"jdbc:postgresql://{host}:{port}/{dbname}"
     connection_properties = {
-        "user": "postgres",
-        "password": "admin",
+        "user": user,
+        "password": password,
         "driver": "org.postgresql.Driver"
     }
 
