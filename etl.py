@@ -10,7 +10,6 @@ class ETL:
     def __init__(self,logger):
         with open("new.yml", 'r') as file:
             new = yaml.safe_load(file)
-
             
         self.logger = logger
         self.logger.info("Initializing ETL") 
@@ -22,24 +21,24 @@ class ETL:
         self.memories = new['SPARK']['DRIVER']['MEMORY']
 
         self.dbname = new['POSTGRES']['DATABASE']
-        self.host = new['POSTGRES']['HOST']
+        self.host = new['POSTGRES']['HOST']                                                                                         
         self.port = new['POSTGRES']['PORT']
         self.user = new['POSTGRES']['USER']
         self.password = new['POSTGRES']['PASSWORD']
-
+        
+    
+    def execute(self,args,logger):
+       
+        self.logger.info("Extract")
+        net_file, prov_path = network2.extract_import(args.zip_path)
+        
         self.spark = SparkSession.builder \
             .appName("ETL") \
             .config("spark.driver.memory", self.memories )\
             .getOrCreate()
-        
-    
-    def execute(self,zip_path):
-       
-        self.logger.info("Extract")
-        net_file, prov_path = network2.extract_import(zip_path)
 
         self.logger.info("Scrub")
-        rate_path,provider_path = scrubbing.scrub_import(net_file, prov_path, self)
+        rate_path,provider_path = scrubbing.scrub_import(net_file, prov_path,args.provider_detail, self,logger)
 
         self.logger.info("Load")
         loading.load_file(rate_path,provider_path, self)

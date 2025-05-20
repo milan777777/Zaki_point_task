@@ -27,7 +27,7 @@ def get_planetary_data():
                 distance=distance
             ))
     return planets
-
+                                                                                                                                                
 def insertion_sort(planets, ascending=True):
     for i in range(1, len(planets)):
         current = planets[i]

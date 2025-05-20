@@ -1,13 +1,15 @@
-from pyspark.sql.functions import explode,col,expr,when 
-from pyspark.sql.types import ArrayType, IntegerType, ShortType 
+from pyspark.sql.functions import explode,col,expr,when,concat_ws,array,array_except,lit
+from pyspark.sql.types import ArrayType, IntegerType, ShortType, LongType
 import yaml
 
 
-def scrub_import(in_path,prov_path,etl):
+def scrub_import(in_path,prov_path,provider_detail,etl,logger):
+    logger.info("Starting transform process")
     spark = etl.spark
 
     rate_file = spark.read.json(in_path) 
     provider_file = spark.read.json(prov_path)
+    pro_file = spark.read.json(provider_detail)
 
     rate_file.printSchema() 
     provider_file.printSchema()
@@ -59,15 +61,42 @@ def scrub_import(in_path,prov_path,etl):
   
     rate_prov = rate_filtered.withColumn("provider_group_id", col("provider_group_id").cast(IntegerType()))
     rate_cast = rate_prov.withColumn("service_code",col("service_code").cast(ArrayType(IntegerType())))
+
+    # new provider 
+
+    pro_ = pro_file.select("*",col('loc.lat').alias('lat'), 
+                            col('loc.lon').alias('lon') )
+
+    ploc_ = pro_.drop("loc")
+
+    p_concat = ploc_.withColumn("provider_full_name", concat_ws(" ", col("provider_first_name"), col("provider_middle_name"), col("provider_last_name")))
+
+    
+    p_merge = p_concat.withColumn("prv_taxonomy", array("prv_taxonomy_1_code", "prv_taxonomy_2_code", "prv_taxonomy_3_code")) \
+                    .withColumn("prv_specialty", array("prv_specialty_1_desc", "prv_specialty_2_desc", "prv_specialty_3_desc"))
+
    
+    p_drop = p_merge.drop("prv_fax", "prv_type_desc", "provider_first_name", "provider_last_name", "provider_middle_name", "provider_name_prefix_text",
+                        "prv_taxonomy_1_code", "prv_taxonomy_2_code", "prv_taxonomy_3_code",
+                        "prv_specialty_1_desc", "prv_specialty_2_desc", "prv_specialty_3_desc")
+
+    pmap_ = p_drop.withColumn("prv_type_code",
+                            when(col("prv_type_code") == "P", 1)
+                            .when(col("prv_type_code") == "F", 2))
+    
+    p_cast = pmap_.withColumn("prv_type_code", col("prv_type_code").cast(IntegerType())) \
+                .withColumn("npi", col("npi").cast(LongType()))
+    
+    _pro_table = provider_cast.join(p_cast,on="npi",how="inner")
+    _pro_table.show() 
+
     rate_cast.printSchema()   
     provider_cast.printSchema()
-    
+
     rate_path = "output_file/rate_data.parquet"
     provider_path = "output_file/provider_data.parquet"
 
     rate_cast.write.mode("overwrite").parquet(rate_path)
-    provider_cast.write.mode("overwrite").parquet(provider_path)
-
+    _pro_table.write.mode("overwrite").parquet(provider_path)
 
     return rate_path,provider_path

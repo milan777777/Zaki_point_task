@@ -7,14 +7,15 @@ def main():
     # zip_path = sys.argv[1] 
     parser = argparse.ArgumentParser(description="ETL pipeline for processing ZIP files containing rate and provider data.")
     parser.add_argument("--zip_path",required=True , help="Path to the ZIP file to process")
+    parser.add_argument("--provider_detail", help="Path to tht provider_detail.json")
 
     args = parser.parse_args()
     
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO,filename="logging_file.log")
 
     logger = logging.getLogger("ETL")
     etl = ETL(logger)
-    etl.execute(args.zip_path)
+    etl.execute(args,logger)
 
 
     # in_path,prov_path = network2.extract_import(zip_path) 
