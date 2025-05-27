@@ -1,13 +1,15 @@
 import sys 
-from etl import ETL
+from etlnrpr import ETL
 import logging
 import argparse
 
 def main(): 
     # zip_path = sys.argv[1] 
     parser = argparse.ArgumentParser(description="ETL pipeline for processing ZIP files containing rate and provider data.")
-    parser.add_argument("--zip_path",required=True , help="Path to the ZIP file to process")
-    parser.add_argument("--provider_detail", help="Path to tht provider_detail.json")
+    # parser.add_argument("--zip_path",required=True , help="Path to the ZIP file to process")
+    # parser.add_argument("--provider_detail", help="Path to tht provider_detail.json")
+    parser.add_argument("--folder", help="Path to the Zip file to process")
+    parser.add_argument("--pro", help="Path to the provider detail")
 
     args = parser.parse_args()
     
@@ -15,6 +17,7 @@ def main():
 
     logger = logging.getLogger("ETL")
     etl = ETL(logger)
+    # etl.execute(args,logger)
     etl.execute(args,logger)
 
 
