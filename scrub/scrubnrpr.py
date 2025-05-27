@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import explode,col,hash,expr,array,concat_ws,concat,when,array_except,lit,lpad
-from pyspark.sql.types import ArrayType, IntegerType, ShortType
+from pyspark.sql.functions import regexp_replace,col,hash,expr,array,concat_ws,concat,when,array_except,lit,lpad,split, trim, transform
+from pyspark.sql.types import ArrayType, IntegerType, ShortType,DoubleType
 
 def scrub_nrpr(output_folder,pro,etl):
     spark = etl.spark
@@ -23,11 +23,9 @@ def scrub_nrpr(output_folder,pro,etl):
                     when(col("tin_type") == "ein", 1)
                     .when(col("tin_type") == "npi", 2))
     
-    df_combine = provider_replaced.withColumn("provider_group_id",concat("npi", "tin"))
-    df_hash = df_combine.withColumn('provider_group_id',hash("provider_group_id"))
-    df_nr_neww = df_combine.drop('npi', 'tin_type', 'tin')
+    df_hash = provider_replaced.withColumn('provider_group_id',hash(concat("npi", "tin")))
     
-    in_net = df_nr_neww.select(
+    in_net = df_hash.select(
     "billing_code",
     "billing_code_type",
     "negotiation_arrangement",
@@ -43,13 +41,9 @@ def scrub_nrpr(output_folder,pro,etl):
             .withColumn("service_code",col("service_code").cast(ArrayType(IntegerType())))
     )
 
-
-    network_nrpr = "output/data.parquet"
-    np_data.write.mode("Overwrite").parquet(network_nrpr)
-
     # for mrf pr
     df1_pyspark = spark.read.parquet(pro)
-    provider_table = df_hash.selectExpr( 'npi',
+    provider_table = df_hash.select( 'npi',
             "tin_type",
             "tin",
             "provider_group_id")
@@ -80,28 +74,24 @@ def scrub_nrpr(output_folder,pro,etl):
     df_array = df_new2.withColumn("taxonomy",array(col("prv_taxonomy_1_code"),col("prv_taxonomy_2_code"),col("prv_taxonomy_3_code")))
     df_array1=df_array.drop("prv_taxonomy_1_code","prv_taxonomy_2_code","prv_taxonomy_3_code")
     df_array2 = df_array1.withColumn("prv_specialty",array(col("prv_specialty_1_desc"),col("prv_specialty_2_desc"),col("prv_specialty_3_desc")))
-    df_array3=df_array2.drop("prv_specialty_1_desc","prv_specialty_2_desc","prv_specialty_3_desc")
+    df_array3=(df_array2.drop("prv_specialty_1_desc","prv_specialty_2_desc","prv_specialty_3_desc")
+                .withColumn("longitude", col("longitude").cast(DoubleType())) 
+                .withColumn("latitude", col("latitude").cast(DoubleType())) )
 
-    # join provider table
-    df_join = provider_rep.join(df_array3,how="inner",on=["npi","tin"])
-    providernr_pr = "output/prov.parquet"
-    df_join.write.mode("Overwrite").parquet(providernr_pr)
+
+   
     
         
     # new csv file
     df_bil_code = spark.read.option('header','True').csv('/home/milan-thapa/Desktop/Zaki_point_task/files/billing_taxonomy_list (2).csv')
     df_leftpad = df_bil_code.withColumn("billing_code", lpad(col("billing_code"), 5, "0"))
-    df_rate2 = df_leftpad.drop('_c4','_c5','_c6')
+    df_rate2 = df_leftpad.drop('_c4','_c5','_c6') \
+    .withColumn("taxonomy_list", array(regexp_replace(col("taxonomy_list"), r"^\{|\}$", ""))) 
     df_join = df_rate2.select(
     "billing_code",
     "taxonomy_list"
     )
-    df_newrtab = df_nr_neww.join(df_join,on="billing_code",how="inner")
-    
-
-
-    df_newrtab.printSchema()
-    
+    df_rate2.printSchema()
     return np_data,provider_rep,df_array3,df_rate2,df_join
 
 
